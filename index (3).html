@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shorts Grid</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f0f0f;color:#eee;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%;max-width:1000px;margin:0 auto}
+  .card{position:relative;width:100%;aspect-ratio:9/16;border-radius:12px;overflow:hidden;background:#000}
+  .card iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .empty{display:flex;align-items:center;justify-content:center;color:#666;font-size:14px;height:100%}
+  @media(max-width:700px){.grid{grid-template-columns:1fr;max-width:360px}}
+
+  /* viewer mode (what Behance sees) */
+  body.viewer{padding:16px;display:flex;justify-content:center;align-items:center;min-height:100vh}
+
+  /* generator mode */
+  .wrap{max-width:1040px;margin:0 auto;padding:28px 16px 60px}
+  h1{font-size:26px;margin-bottom:6px}
+  .sub{color:#999;margin-bottom:24px;font-size:15px}
+  label{display:block;font-size:13px;color:#aaa;margin:14px 0 6px}
+  input[type=text]{width:100%;padding:12px 14px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#fff;font-size:15px}
+  input[type=text]:focus{outline:2px solid #3ea6ff;border-color:transparent}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  button{padding:11px 18px;border:0;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;background:#3ea6ff;color:#06121f}
+  button.alt{background:#2a2a2a;color:#eee}
+  button:hover{filter:brightness(1.1)}
+  h2{font-size:17px;margin:32px 0 10px}
+  textarea{width:100%;height:92px;padding:12px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#9fd0ff;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;resize:vertical}
+  .note{font-size:13px;color:#888;margin-top:8px;line-height:1.5}
+  .err{color:#ff7b7b;font-size:13px;margin-top:6px;min-height:18px}
+  .preview{margin-top:12px}
+</style>
+</head>
+<body>
+
+<script>
+  // ---------- helpers ----------
+  function getId(input){
+    input = (input||'').trim();
+    if(!input) return '';
+    if(/^[\w-]{11}$/.test(input)) return input;               // bare ID
+    var m = input.match(/(?:shorts\/|youtu\.be\/|embed\/|[?&]v=)([\w-]{11})/);
+    return m ? m[1] : '';
+  }
+  function iframeHTML(id,n){
+    return '<iframe src="https://www.youtube.com/embed/'+id+'" title="Short '+n+'" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>';
+  }
+  function gridHTML(ids){
+    return '<div class="grid">'+ids.map(function(id,i){
+      return '<div class="card">'+(id?iframeHTML(id,i+1):'<div class="empty">Short '+(i+1)+'</div>')+'</div>';
+    }).join('')+'</div>';
+  }
+
+  // ---------- viewer mode: ?v=id1,id2,id3 ----------
+  var params = new URLSearchParams(location.search);
+  var v = params.get('v');
+  if(v){
+    document.body.className = 'viewer';
+    document.body.insertAdjacentHTML('beforeend', gridHTML(v.split(',').slice(0,3)));
+  } else {
+    buildGenerator();
+  }
+
+  // ---------- generator mode ----------
+  function buildGenerator(){
+    document.body.insertAdjacentHTML('beforeend',
+    '<div class="wrap">'+
+      '<h1>Shorts Grid Builder</h1>'+
+      '<p class="sub">Paste your normal YouTube Shorts share links. Get a 3-video grid you can embed on Behance.</p>'+
+      '<label>Short 1 link</label><input type="text" id="l1" placeholder="https://youtube.com/shorts/xxxxxxxxxxx?si=...">'+
+      '<label>Short 2 link</label><input type="text" id="l2" placeholder="https://youtube.com/shorts/xxxxxxxxxxx?si=...">'+
+      '<label>Short 3 link</label><input type="text" id="l3" placeholder="https://youtube.com/shorts/xxxxxxxxxxx?si=...">'+
+      '<div class="err" id="err"></div>'+
+      '<div class="row"><button id="go">Build grid</button><button class="alt" id="dl">Download standalone grid.html</button></div>'+
+      '<h2>Preview</h2><div class="preview" id="prev"></div>'+
+      '<h2>Behance embed code</h2>'+
+      '<textarea id="out" readonly></textarea>'+
+      '<div class="row"><button id="cp">Copy embed code</button></div>'+
+      '<p class="note">Paste this into Behance&rsquo;s Embed module. It loads this same page in grid mode, so keep this page hosted. Change the links here any time and copy a new code.</p>'+
+    '</div>');
+
+    var $ = function(i){return document.getElementById(i)};
+    $('prev').innerHTML = '<div class="grid">'+gridHTML([ '','','' ]).replace('<div class="grid">','').replace(/<\/div>$/,'')+'</div>';
+
+    function build(){
+      var ids = [$('l1').value,$('l2').value,$('l3').value].map(getId);
+      var bad = [];
+      [$('l1').value,$('l2').value,$('l3').value].forEach(function(raw,i){ if(raw.trim() && !ids[i]) bad.push(i+1); });
+      $('err').textContent = bad.length ? 'Could not read the link for Short '+bad.join(', ')+'. Check it and try again.' : '';
+      $('prev').innerHTML = gridHTML(ids);
+      var base = location.origin + location.pathname;
+      var url = base + '?v=' + ids.join(',');
+      $('out').value = '<iframe src="'+url+'" width="100%" height="620" frameborder="0" allowfullscreen></iframe>';
+      return ids;
+    }
+    $('go').onclick = build;
+    ['l1','l2','l3'].forEach(function(i){ $(i).addEventListener('input', build); });
+    $('cp').onclick = function(){
+      $('out').select();
+      (navigator.clipboard ? navigator.clipboard.writeText($('out').value) : Promise.resolve(document.execCommand('copy')))
+        .then(function(){ $('cp').textContent='Copied!'; setTimeout(function(){$('cp').textContent='Copy embed code'},1500); });
+    };
+    $('dl').onclick = function(){
+      var ids = build();
+      var css = 'html,body{background:#0f0f0f}body{margin:0;padding:16px;display:flex;justify-content:center;align-items:center;min-height:100vh}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%;max-width:1000px}.card{position:relative;width:100%;aspect-ratio:9/16;border-radius:12px;overflow:hidden;background:#000}.card iframe{position:absolute;inset:0;width:100%;height:100%;border:0}@media(max-width:700px){.grid{grid-template-columns:1fr;max-width:360px}}';
+      var html = '<!DOCTYPE html>\n<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Shorts</title><style>'+css+'</style></head><body>'+gridHTML(ids)+'</body></html>';
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([html],{type:'text/html'}));
+      a.download = 'grid.html';
+      a.click();
+    };
+    build();
+  }
+</script>
+</body>
+</html>
